@@ -1,0 +1,14 @@
+global:
+  workloadIdentity:
+    enabled: true
+    clientId: ""            # set to the managed identity client id
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+  resources:
+    requests: { cpu: 500m, memory: 768Mi }
+    limits: { memory: 1536Mi }
+  ingress:
+    enabled: true
+    host: api.telesentinel.example.com

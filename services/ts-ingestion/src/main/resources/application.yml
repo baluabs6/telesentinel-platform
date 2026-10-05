@@ -1,0 +1,36 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: ts-ingestion
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: 6379
+    mongodb:
+      uri: ${MONGO_URI:mongodb://localhost:27017/telesentinel}
+      auto-index-creation: true     # needed for the raw_events TTL index
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        spring.json.add.type.headers: false
+telesentinel:
+  topics:
+    alarms: telesentinel.alarms
+    cdrs: telesentinel.cdrs
+  dedupe-ttl-seconds: 60
+  retention:
+    raw-events: P30D          # ISO-8601 duration; raw CDR/alarm audit copies expire after this
+  kafka:
+    create-topics: ${KAFKA_CREATE_TOPICS:true}   # false on Event Hubs / managed Kafka
+    replicas: ${KAFKA_REPLICAS:1}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

@@ -1,0 +1,61 @@
+server:
+  port: 8082
+spring:
+  application:
+    name: ts-fraud
+  datasource:
+    url: ${PG_URL:jdbc:postgresql://localhost:5432/telesentinel}
+    username: ${PG_USER:ts}
+    password: ${PG_PASSWORD:ts_dev_pw}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: fraud
+  flyway:
+    schemas: fraud
+    default-schema: fraud
+    create-schemas: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: 6379
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      group-id: ts-fraud
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.value.default.type: com.telesentinel.fraud.model.CdrEvent
+        spring.json.use.type.headers: false
+        spring.json.trusted.packages: com.telesentinel.fraud.model
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      properties:
+        spring.json.add.type.headers: false
+telesentinel:
+  topics:
+    cdrs: telesentinel.cdrs
+    fraud-alerts: telesentinel.fraud-alerts
+  fraud:
+    allow-list: []          # calling numbers to skip, e.g. registered business senders: ["+911800123456"]
+    wangiri:
+      short-call-seconds: 6
+      distinct-targets: 20
+      window-seconds: 300
+    irsf:
+      risky-prefixes: ["+882", "+883", "+247", "+239"]
+      max-seconds: 1800
+      window-seconds: 3600
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

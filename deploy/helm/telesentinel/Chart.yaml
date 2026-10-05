@@ -1,0 +1,6 @@
+apiVersion: v2
+name: telesentinel
+description: TeleSentinel microservices (ingestion, fraud, correlation, RAG assistant, gateway, notification)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

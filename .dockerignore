@@ -1,0 +1,11 @@
+**/target/
+.git/
+.github/
+.idea/
+.vscode/
+infra/
+deploy/
+docs/
+scripts/
+*.md
+*.zip

@@ -1,0 +1,39 @@
+server:
+  port: 8084
+spring:
+  application:
+    name: ts-rag-assistant
+  datasource:
+    url: ${PG_URL:jdbc:postgresql://localhost:5432/telesentinel}
+    username: ${PG_USER:ts}
+    password: ${PG_PASSWORD:ts_dev_pw}
+  ai:
+    azure:
+      openai:
+        api-key: ${AZURE_OPENAI_API_KEY:}
+        endpoint: ${AZURE_OPENAI_ENDPOINT:}
+        chat:
+          options:
+            deployment-name: ${AZURE_OPENAI_CHAT_DEPLOYMENT:gpt-4o-mini}
+            temperature: 0.2
+        embedding:
+          options:
+            deployment-name: ${AZURE_OPENAI_EMBED_DEPLOYMENT:text-embedding-3-small}
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: 1536
+telesentinel:
+  rag:
+    top-k: 4
+    similarity-threshold: 0.5
+    load-samples: true
+  services:
+    correlation-url: ${CORRELATION_URL:http://localhost:8083}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

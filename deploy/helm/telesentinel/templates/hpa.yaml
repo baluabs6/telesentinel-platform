@@ -1,0 +1,25 @@
+{{- if .Values.global.autoscaling.enabled }}
+{{- range $name, $svc := .Values.services }}
+{{- if and $svc.enabled (gt (int ($svc.replicas | default 2)) 1) }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $name }}
+  minReplicas: {{ $.Values.global.autoscaling.minReplicas }}
+  maxReplicas: {{ $.Values.global.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $.Values.global.autoscaling.cpuTarget }}
+{{- end }}
+{{- end }}
+{{- end }}

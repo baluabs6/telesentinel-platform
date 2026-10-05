@@ -1,0 +1,23 @@
+server:
+  port: 8085
+spring:
+  application:
+    name: ts-notification
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      group-id: ts-notification
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+telesentinel:
+  topics:
+    fraud-alerts: telesentinel.fraud-alerts
+    incidents: telesentinel.incidents
+  notify:
+    slack-webhook-url: ${SLACK_WEBHOOK_URL:}   # empty = log only
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

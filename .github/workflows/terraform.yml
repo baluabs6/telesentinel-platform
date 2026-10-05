@@ -1,0 +1,74 @@
+name: terraform
+
+on:
+  pull_request:
+    paths: ['infra/terraform/**']
+  push:
+    branches: [main]
+    paths: ['infra/terraform/**']
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { stack: azure,  varfile: envs/dev.tfvars }
+          - { stack: gcp,    varfile: envs/dev.tfvars }
+          - { stack: aws-dr, varfile: envs/dr.tfvars }
+    defaults:
+      run:
+        working-directory: infra/terraform/${{ matrix.stack }}
+    env:
+      # Repository variables hold the backend settings, e.g. TF_BACKEND_AZURE:
+      #   resource_group_name="..." \n storage_account_name="..." \n container_name="tfstate" \n key="azure.tfstate"
+      BACKEND_HCL: ${{ matrix.stack == 'azure' && vars.TF_BACKEND_AZURE || matrix.stack == 'gcp' && vars.TF_BACKEND_GCP || vars.TF_BACKEND_AWS_DR }}
+      ARM_USE_OIDC: 'true'
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Cloud login (OIDC)
+        if: matrix.stack == 'gcp'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_TERRAFORM_SA }}
+      - name: Cloud login (OIDC)
+        if: matrix.stack == 'aws-dr'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_DR_REGION }}
+
+      # Make this blocking after running `terraform fmt -recursive` once locally and committing the result.
+      - run: terraform fmt -check -recursive -diff
+        continue-on-error: true
+      - run: |
+          printf '%s\n' "$BACKEND_HCL" > backend.hcl
+          terraform init -backend-config=backend.hcl
+      - run: terraform validate
+      - run: terraform plan -var-file=${{ matrix.varfile }} -out=tfplan -input=false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ matrix.stack }}
+          path: infra/terraform/${{ matrix.stack }}/tfplan
+
+  # Apply runs only on main and waits for approval via the "infra" environment's protection rules.
+  apply:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: infra
+    steps:
+      - run: echo "Download the tfplan artifacts and apply them per stack, in the order azure, gcp, aws-dr."

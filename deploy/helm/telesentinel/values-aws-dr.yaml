@@ -1,0 +1,15 @@
+# Used only during failover. Data endpoints come from the aws-dr Terraform outputs.
+# Kafka runs in-cluster (Strimzi) because Event Hubs lives in the Azure region that is down.
+global:
+  ingress:
+    enabled: true
+    host: api.telesentinel.example.com
+    className: alb
+  env:
+    PG_URL: jdbc:postgresql://CHANGE-ME.rds.amazonaws.com:5432/telesentinel?sslmode=require
+    PG_USER: tsadmin
+    SPRING_DATA_REDIS_HOST: CHANGE-ME.cache.amazonaws.com
+    SPRING_DATA_REDIS_PORT: "6379"
+    SPRING_DATA_REDIS_SSL_ENABLED: "true"
+    KAFKA_BOOTSTRAP: telesentinel-kafka-bootstrap.kafka.svc:9092
+    SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL: PLAINTEXT

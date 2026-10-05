@@ -1,0 +1,66 @@
+name: deploy
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [dev, prod]
+        default: dev
+      image_tag:
+        description: Image tag (commit SHA already pushed by CI)
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    # prod should have required reviewers configured on the GitHub environment
+    environment: ${{ inputs.environment || 'dev' }}
+    env:
+      ENVIRONMENT: ${{ inputs.environment || 'dev' }}
+      TAG: ${{ inputs.image_tag || github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.image_tag || github.event.workflow_run.head_sha }}
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: azure/aks-set-context@v4
+        with:
+          resource-group: ${{ vars.AKS_RESOURCE_GROUP }}
+          cluster-name: ${{ vars.AKS_NAME }}
+
+      - uses: azure/setup-helm@v4
+
+      - name: Lint chart
+        run: helm lint deploy/helm/telesentinel -f deploy/helm/telesentinel/values-${ENVIRONMENT}.yaml --set global.imageRegistry=x --set global.imageTag=x
+
+      - name: Deploy
+        run: |
+          helm upgrade --install telesentinel deploy/helm/telesentinel \
+            --namespace telesentinel --create-namespace \
+            -f deploy/helm/telesentinel/values-${ENVIRONMENT}.yaml \
+            --set global.imageRegistry="${{ vars.ACR_NAME }}.azurecr.io" \
+            --set global.imageTag="${TAG}" \
+            --atomic --timeout 10m
+
+      - name: Smoke test
+        run: |
+          kubectl -n telesentinel rollout status deploy/ts-gateway --timeout=120s
+          kubectl -n telesentinel get pods

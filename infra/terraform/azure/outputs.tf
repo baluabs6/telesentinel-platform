@@ -1,0 +1,9 @@
+output "resource_group" { value = azurerm_resource_group.main.name }
+output "aks_name" { value = azurerm_kubernetes_cluster.main.name }
+output "aks_oidc_issuer_url" { value = azurerm_kubernetes_cluster.main.oidc_issuer_url }
+output "acr_login_server" { value = azurerm_container_registry.main.login_server }
+output "key_vault_name" { value = azurerm_key_vault.main.name }
+output "postgres_fqdn" { value = module.data.postgres_fqdn }
+output "redis_hostname" { value = module.data.redis_hostname }
+output "azure_openai_endpoint" { value = azurerm_cognitive_account.openai.endpoint }
+output "kafka_bootstrap" { value = "${azurerm_eventhub_namespace.kafka.name}.servicebus.windows.net:9093" }

@@ -1,0 +1,85 @@
+global:
+  imageRegistry: ""            # e.g. myacr.azurecr.io (required)
+  imageTag: ""                 # commit SHA from CI (required)
+  imagePullPolicy: IfNotPresent
+  secretName: telesentinel-secrets   # existing Secret, created by External Secrets / CSI from Key Vault
+  workloadIdentity:
+    enabled: false
+    clientId: ""
+  networkPolicy:
+    enabled: true          # requires a CNI that enforces NetworkPolicy (the Terraform AKS config does)
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    cpuTarget: 70
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { memory: 1Gi }
+  ingress:
+    enabled: false
+    className: nginx
+    host: api.telesentinel.example.com
+    tlsSecret: telesentinel-tls
+    annotations: {}
+  # Non-secret environment shared by all services (Spring relaxed binding maps these to properties).
+  env:
+    PG_URL: jdbc:postgresql://CHANGE-ME.postgres.database.azure.com:5432/telesentinel?sslmode=require
+    PG_USER: tsadmin
+    SPRING_DATA_REDIS_HOST: CHANGE-ME.redis.cache.windows.net
+    SPRING_DATA_REDIS_PORT: "6380"
+    SPRING_DATA_REDIS_SSL_ENABLED: "true"
+    KAFKA_BOOTSTRAP: CHANGE-ME.servicebus.windows.net:9093
+    KAFKA_CREATE_TOPICS: "false"      # topics are created by Terraform (Event Hubs) or Strimzi manifests
+    SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL: SASL_SSL
+    SPRING_KAFKA_PROPERTIES_SASL_MECHANISM: PLAIN
+    AZURE_OPENAI_ENDPOINT: https://CHANGE-ME.openai.azure.com/
+    AZURE_OPENAI_CHAT_DEPLOYMENT: chat
+    AZURE_OPENAI_EMBED_DEPLOYMENT: embedding
+    JWT_ISSUER_URI: https://login.microsoftonline.com/CHANGE-TENANT-ID/v2.0
+    JWT_JWKS_URI: https://login.microsoftonline.com/CHANGE-TENANT-ID/discovery/v2.0/keys
+    JWT_AUDIENCE: api://CHANGE-ME      # the Application ID URI of the TeleSentinel API registration
+
+services:
+  ts-gateway:
+    enabled: true
+    port: 8080
+    replicas: 2
+    ingress: true
+    env:
+      INGESTION_URL: http://ts-ingestion:8081
+      FRAUD_URL: http://ts-fraud:8082
+      CORRELATION_URL: http://ts-correlation:8083
+      RAG_URL: http://ts-rag-assistant:8084
+    secretEnv: [SPRING_DATA_REDIS_PASSWORD]
+  ts-ingestion:
+    enabled: true
+    port: 8081
+    replicas: 2
+    allowFrom: [ts-gateway]
+    secretEnv: [SPRING_DATA_REDIS_PASSWORD, MONGO_URI, SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG]
+  ts-fraud:
+    enabled: true
+    port: 8082
+    replicas: 2
+    allowFrom: [ts-gateway]
+    secretEnv: [PG_PASSWORD, SPRING_DATA_REDIS_PASSWORD, SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG]
+  ts-correlation:
+    enabled: true
+    port: 8083
+    replicas: 1          # active-alarm set is in memory: keep one replica (see docs/architecture.md)
+    allowFrom: [ts-gateway, ts-rag-assistant]
+    secretEnv: [PG_PASSWORD, SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG]
+  ts-rag-assistant:
+    enabled: true
+    port: 8084
+    replicas: 2
+    allowFrom: [ts-gateway]
+    env:
+      CORRELATION_URL: http://ts-correlation:8083
+    secretEnv: [PG_PASSWORD, AZURE_OPENAI_API_KEY]
+  ts-notification:
+    enabled: true
+    port: 8085
+    replicas: 1
+    secretEnv: [SLACK_WEBHOOK_URL, SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG]

@@ -1,0 +1,23 @@
+# Activate with: mvn -Pvertex spring-boot:run -Dspring-boot.run.profiles=vertex
+# Verify current Gemini / embedding model ids in the Vertex AI docs before using.
+spring:
+  ai:
+    vertex:
+      ai:
+        gemini:
+          project-id: ${GCP_PROJECT_ID}
+          location: ${GCP_LOCATION:us-central1}
+          chat:
+            options:
+              model: ${GEMINI_MODEL:gemini-2.0-flash}
+              temperature: 0.2
+        embedding:
+          project-id: ${GCP_PROJECT_ID}
+          location: ${GCP_LOCATION:us-central1}
+          text:
+            options:
+              model: ${VERTEX_EMBED_MODEL:text-embedding-005}
+    vectorstore:
+      pgvector:
+        dimensions: 768
+        table-name: vector_store_768
