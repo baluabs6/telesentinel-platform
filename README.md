@@ -135,6 +135,12 @@ These are design choices, not claims about any specific vendor's product.
 
 **When it is not the right fit (yet):** this is version 0.1. It has not been load tested or proven in production, it ships with two fraud rules and a static topology file, and it does not replace a certified fraud management system or a vendor OSS where you need support contracts and regulatory sign-off. Treat it as a strong foundation to build on and validate.
 
+## Sensitive data and placeholders
+Every sensitive or environment-specific value in this repository is masked as `************************************`: the local development database password, tenant, project and account identifiers, endpoints, and allowed CIDR ranges. Real values must come from environment variables, a secret store (Key Vault, Secrets Manager), or your own untracked values files.
+- Local development uses the masked string itself as the database password in `docker-compose.yml` and the service defaults, so it works out of the box. Override with `POSTGRES_PASSWORD` and `PG_PASSWORD` for anything beyond your laptop.
+- Terraform generates all real passwords and keys and writes them to Key Vault; none are stored in code.
+- Sample phone numbers in tests and `scripts/demo.sh` are fictitious.
+
 ## Reliability behaviour (what the code guarantees)
 - **No silent loss on publish failure:** ingestion claims the dedupe key, waits for the Kafka ack, and releases the key if publishing fails (HTTP 503 with `Retry-After`), so the client's retry is accepted, not mistaken for a duplicate.
 - **Durable alarm state:** active alarms live in PostgreSQL, so a correlation restart does not forget live faults or wrongly auto-resolve their incidents.
@@ -200,7 +206,7 @@ One Dockerfile builds any service (multi-stage, non-root, JRE only).
 ## Deploy
 1. `infra/terraform/azure` (then `gcp`, then `aws-dr`): see the infra README.
 2. Create the Kubernetes Secret `telesentinel-secrets` from Key Vault with keys: `PG_PASSWORD`, `SPRING_DATA_REDIS_PASSWORD`, `MONGO_URI`, `SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG`, `AZURE_OPENAI_API_KEY`, `SLACK_WEBHOOK_URL`.
-3. Edit the `CHANGE-ME` values in `deploy/helm/telesentinel/values.yaml` (or your env file), then run the `deploy` workflow or:
+3. Replace every `************************************` value in `deploy/helm/telesentinel/values.yaml` (or your env file), then run the `deploy` workflow or:
 ```bash
 helm upgrade --install telesentinel deploy/helm/telesentinel -n telesentinel --create-namespace \
   -f deploy/helm/telesentinel/values-dev.yaml --set global.imageRegistry=<acr>.azurecr.io --set global.imageTag=<sha>

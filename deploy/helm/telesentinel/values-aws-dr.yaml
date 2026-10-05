@@ -6,9 +6,9 @@ global:
     host: api.telesentinel.example.com
     className: alb
   env:
-    PG_URL: jdbc:postgresql://CHANGE-ME.rds.amazonaws.com:5432/telesentinel?sslmode=require
+    PG_URL: jdbc:postgresql://************************************.rds.amazonaws.com:5432/telesentinel?sslmode=require
     PG_USER: tsadmin
-    SPRING_DATA_REDIS_HOST: CHANGE-ME.cache.amazonaws.com
+    SPRING_DATA_REDIS_HOST: "************************************.cache.amazonaws.com"
     SPRING_DATA_REDIS_PORT: "6379"
     SPRING_DATA_REDIS_SSL_ENABLED: "true"
     KAFKA_BOOTSTRAP: telesentinel-kafka-bootstrap.kafka.svc:9092

@@ -6,7 +6,7 @@ spring:
   datasource:
     url: ${PG_URL:jdbc:postgresql://localhost:5432/telesentinel}
     username: ${PG_USER:ts}
-    password: ${PG_PASSWORD:ts_dev_pw}
+    password: ${PG_PASSWORD:************************************}
   ai:
     azure:
       openai:

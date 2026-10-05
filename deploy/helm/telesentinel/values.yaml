@@ -1,3 +1,5 @@
+# Values shown as ************************************ are masked placeholders for sensitive or environment-specific data.
+# Supply the real ones in your own values file or with --set; never commit them.
 global:
   imageRegistry: ""            # e.g. myacr.azurecr.io (required)
   imageTag: ""                 # commit SHA from CI (required)
@@ -24,21 +26,21 @@ global:
     annotations: {}
   # Non-secret environment shared by all services (Spring relaxed binding maps these to properties).
   env:
-    PG_URL: jdbc:postgresql://CHANGE-ME.postgres.database.azure.com:5432/telesentinel?sslmode=require
+    PG_URL: jdbc:postgresql://************************************.postgres.database.azure.com:5432/telesentinel?sslmode=require
     PG_USER: tsadmin
-    SPRING_DATA_REDIS_HOST: CHANGE-ME.redis.cache.windows.net
+    SPRING_DATA_REDIS_HOST: "************************************.redis.cache.windows.net"
     SPRING_DATA_REDIS_PORT: "6380"
     SPRING_DATA_REDIS_SSL_ENABLED: "true"
-    KAFKA_BOOTSTRAP: CHANGE-ME.servicebus.windows.net:9093
+    KAFKA_BOOTSTRAP: "************************************.servicebus.windows.net:9093"
     KAFKA_CREATE_TOPICS: "false"      # topics are created by Terraform (Event Hubs) or Strimzi manifests
     SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL: SASL_SSL
     SPRING_KAFKA_PROPERTIES_SASL_MECHANISM: PLAIN
-    AZURE_OPENAI_ENDPOINT: https://CHANGE-ME.openai.azure.com/
+    AZURE_OPENAI_ENDPOINT: https://************************************.openai.azure.com/
     AZURE_OPENAI_CHAT_DEPLOYMENT: chat
     AZURE_OPENAI_EMBED_DEPLOYMENT: embedding
-    JWT_ISSUER_URI: https://login.microsoftonline.com/CHANGE-TENANT-ID/v2.0
-    JWT_JWKS_URI: https://login.microsoftonline.com/CHANGE-TENANT-ID/discovery/v2.0/keys
-    JWT_AUDIENCE: api://CHANGE-ME      # the Application ID URI of the TeleSentinel API registration
+    JWT_ISSUER_URI: https://login.microsoftonline.com/************************************/v2.0
+    JWT_JWKS_URI: https://login.microsoftonline.com/************************************/discovery/v2.0/keys
+    JWT_AUDIENCE: api://************************************      # the Application ID URI of the TeleSentinel API registration
 
 services:
   ts-gateway:
