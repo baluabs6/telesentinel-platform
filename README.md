@@ -4,7 +4,7 @@
 ## 1. Brief description
 TeleSentinel is a cloud-native platform for telecom operators that reads network alarms and call records in real time. It flags fraud (Wangiri and IRSF) as it happens, turns an alarm storm into one incident with a probable root cause, and lets engineers ask a GenAI assistant, grounded in their own runbooks, what to do next. It is built with Spring Boot and Spring AI, runs on Kubernetes (Azure primary, AWS standby, GCP for AI and analytics), and is deployed with Terraform, Helm and GitHub Actions.
 
-> **Status:** version 0.1, a foundation to build on. It has unit tests but has not been compiled in CI, load tested, or proven in production (see "Status and honesty notes" below).
+> **Status:** version 0.1, a foundation to build on. It has unit tests but has not been compiled in CI, load tested, or proven in production.
 
 ## 2. Application stack
 | Layer | Technology |
@@ -166,61 +166,3 @@ Every sensitive or environment-specific value in this repository is masked as `*
 | `ts-notification` | 8085 | Fraud alerts and incidents to Slack (log-only if no webhook) |
 
 Architecture, decisions and limitations: [`docs/architecture.md`](docs/architecture.md). DR plan: [`docs/dr-runbook.md`](docs/dr-runbook.md). Infra: [`infra/terraform/README.md`](infra/terraform/README.md).
-
-## Run locally
-Prerequisites: Java 21, Maven, Docker.
-```bash
-docker compose up -d                 # postgres+pgvector, redis, mongo, kafka
-mvn -B verify                        # build and test everything
-
-# one terminal per service
-mvn -pl services/ts-ingestion    spring-boot:run
-mvn -pl services/ts-fraud        spring-boot:run
-mvn -pl services/ts-correlation  spring-boot:run
-mvn -pl services/ts-notification spring-boot:run
-# optional, needs model credentials:
-export AZURE_OPENAI_API_KEY=... AZURE_OPENAI_ENDPOINT=https://<name>.openai.azure.com/
-mvn -pl services/ts-rag-assistant spring-boot:run
-# optional gateway (security off for local use only):
-SECURITY_ENABLED=false mvn -pl services/ts-gateway spring-boot:run
-```
-Then `./scripts/demo.sh` and, after about 15 seconds:
-```bash
-curl localhost:8083/api/v1/incidents      # one incident: LINK_DOWN on agg-router-12, 2 symptom cells
-curl localhost:8082/api/v1/fraud/alerts   # IRSF and Wangiri alerts
-```
-Ask the assistant (through the gateway, or directly on 8084):
-```bash
-curl -X POST localhost:8084/api/v1/assistant/ask -H 'Content-Type: application/json' \
-  -d '{"question":"What should I check first for a LINK_DOWN on an aggregation router?"}'
-curl -X POST localhost:8084/api/v1/assistant/incidents/<incident-id>/summary
-```
-Use Gemini instead of Azure OpenAI: `mvn -Pvertex -pl services/ts-rag-assistant spring-boot:run -Dspring-boot.run.profiles=vertex` with `GCP_PROJECT_ID` set.
-
-## Build images
-```bash
-docker build --build-arg SERVICE=ts-fraud -t telesentinel/ts-fraud .
-```
-One Dockerfile builds any service (multi-stage, non-root, JRE only).
-
-## Deploy
-1. `infra/terraform/azure` (then `gcp`, then `aws-dr`): see the infra README.
-2. Create the Kubernetes Secret `telesentinel-secrets` from Key Vault with keys: `PG_PASSWORD`, `SPRING_DATA_REDIS_PASSWORD`, `MONGO_URI`, `SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG`, `AZURE_OPENAI_API_KEY`, `SLACK_WEBHOOK_URL`.
-3. Replace every `************************************` value in `deploy/helm/telesentinel/values.yaml` (or your env file), then run the `deploy` workflow or:
-```bash
-helm upgrade --install telesentinel deploy/helm/telesentinel -n telesentinel --create-namespace \
-  -f deploy/helm/telesentinel/values-dev.yaml --set global.imageRegistry=<acr>.azurecr.io --set global.imageTag=<sha>
-```
-
-## CI/CD (GitHub Actions)
-- `ci`: Maven tests, per-service image build, Trivy scan, push to ACR and ECR on `main` (OIDC, no stored cloud keys)
-- `codeql`: static analysis weekly and on PRs
-- `terraform`: fmt, validate, plan for all three stacks on PRs; apply behind an approval environment
-- `deploy`: Helm to AKS after CI on `main` (dev), or manually for prod with reviewers
-- Repository variables to set: `ACR_NAME`, `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AKS_NAME`, `AKS_RESOURCE_GROUP`, `AWS_ROLE_ARN`, `AWS_DR_REGION`, `TF_BACKEND_AZURE`, `TF_BACKEND_GCP`, `TF_BACKEND_AWS_DR`, and the GCP/AWS Terraform identity variables used in `terraform.yml`.
-
-## Status and honesty notes
-- Everything here was written without compiling or running it (my sandbox had no Maven, Terraform, or Helm). Run `mvn verify`, `terraform fmt -recursive && terraform validate` per stack, and `helm lint` first, and expect small fixes (versions, property names, model ids). Unit tests cover the reliability fixes above, but there are still no integration tests against real Kafka, Redis, or PostgreSQL.
-- **Framework support window:** the build uses Spring Boot 3.5.x with Spring AI 1.1.x, the combination those Spring AI releases track. Public reports say Boot 3.5 open-source support ended on 30 June 2026, and Spring AI 2.0 needs Boot 4 and, per its milestone notes, drops the Azure OpenAI modules. Plan a migration (and re-check how to reach Azure OpenAI) before production use.
-- Spring AI and model names move quickly: verify property names, the Vertex/Gemini starters (possibly deprecated in favour of newer Google modules), and the Azure/Gemini model ids against current docs.
-- Not load tested, and the DR numbers are targets until you run a drill.
