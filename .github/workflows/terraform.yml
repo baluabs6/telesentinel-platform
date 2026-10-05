@@ -59,7 +59,7 @@ jobs:
       - run: terraform validate
       - run: terraform plan -var-file=${{ matrix.varfile }} -out=tfplan -input=false
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: tfplan-${{ matrix.stack }}
           path: infra/terraform/${{ matrix.stack }}/tfplan
